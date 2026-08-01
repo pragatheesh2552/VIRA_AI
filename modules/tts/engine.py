@@ -24,7 +24,17 @@ class TTSEngine:
         self.event_bus.subscribe("memory_deleted", self.handle_memory_deleted)
         self.event_bus.subscribe("memory_not_found", self.handle_memory_not_found)
         
+        self.event_bus.subscribe("assistant_speak", self.handle_assistant_speak)
+        
         logger.info("TTSEngine initialized and subscribed to various events.")
+
+    # -- Generic Speak Callback --
+    async def handle_assistant_speak(self, payload):
+        try:
+            text = payload.text if hasattr(payload, 'text') else payload.get("text", "")
+            self.core.speak(text)
+        except Exception as e:
+            logger.error(f"Error handling assistant_speak TTS: {e}")
 
     # -- Cognitive Callbacks --
     async def handle_cognitive(self, payload):

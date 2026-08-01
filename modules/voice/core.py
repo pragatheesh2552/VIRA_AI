@@ -9,6 +9,9 @@ class VoiceCore:
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.recognizer.energy_threshold = ENERGY_THRESHOLD
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.8
+        self.recognizer.non_speaking_duration = 0.6
         
         try:
             self.microphone = sr.Microphone(device_index=DEVICE_INDEX)
@@ -34,7 +37,8 @@ class VoiceCore:
                 logger.info("Listening...")
                 audio = self.recognizer.listen(source, timeout=TIMEOUT, phrase_time_limit=phrase_time_limit)
                 
-            text = self.recognizer.recognize_google(audio)
+            text = self.recognizer.recognize_google(audio, language="en-IN")
+            logger.debug(f"Recognized text (en-IN): '{text}'")
             return text.lower()
             
         except sr.WaitTimeoutError:

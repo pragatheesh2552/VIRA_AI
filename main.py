@@ -109,9 +109,9 @@ async def main():
         # Start Lifecycle
         asyncio.create_task(lifecycle.start())
         
-        # Start listening for voice (runs on its own background thread)
-        if 'voice' in modules and hasattr(modules['voice'], 'start_listening'):
-            modules['voice'].start_listening()
+        # Start listening for voice (runs as an asyncio task)
+        if 'voice' in modules and hasattr(modules['voice'], 'run'):
+            asyncio.create_task(modules['voice'].run())
             
         # Keep application running until interrupted
         await asyncio.Event().wait()

@@ -1,8 +1,10 @@
 import asyncio
+import time
 from core.event_bus import EventBus
 from core.lifecycle import SystemState
 from modules.voice.core import VoiceCore
 from modules.voice.models import SpeechPayload
+from modules.tts.models import AssistantSpeakPayload
 from modules.voice.exceptions import VoiceModuleError
 from utils.logger import get_logger
 
@@ -14,6 +16,8 @@ class VoiceEngine:
         self.core = VoiceCore()
         self.is_running = False
         self.is_sleeping = False
+        self.in_conversation = False
+        self.last_speech_time = 0
         
         # Subscribe to system state changes
         self.event_bus.subscribe("system_state_changed", self.handle_state_change)
@@ -50,11 +54,34 @@ class VoiceEngine:
                     command = self.core.extract_command(text)
                     
                     if command is not None:
-                        logger.info(f"Wake word detected! Command: '{command}'")
-                        payload = SpeechPayload(text=command, is_wake_word=True)
-                        await self.event_bus.publish("speech_recognized", payload)
+                        # Wake word detected
+                        self.in_conversation = True
+                        self.last_speech_time = time.time()
+                        
+                        if command == "":
+                            # User only said "VIRA"
+                            logger.info("Conversation mode activated. Waiting for command.")
+                            await self.event_bus.publish("assistant_speak", AssistantSpeakPayload(text="Yes?"))
+                        else:
+                            # User said "VIRA open chrome"
+                            logger.info(f"Wake word detected! Command: '{command}'")
+                            payload = SpeechPayload(text=command, is_wake_word=True)
+                            await self.event_bus.publish("speech_recognized", payload)
                     else:
-                        logger.debug("Wake word not found in speech. Ignoring.")
+                        # Wake word not detected
+                        if self.in_conversation:
+                            # We are in an active session
+                            self.last_speech_time = time.time()
+                            logger.info(f"Conversation command detected: '{text}'")
+                            payload = SpeechPayload(text=text, is_wake_word=False)
+                            await self.event_bus.publish("speech_recognized", payload)
+                        else:
+                            logger.debug("Wake word not found in speech and not in conversation mode. Ignoring.")
+                else:
+                    # Silence (timeout)
+                    if self.in_conversation and (time.time() - self.last_speech_time > 10):
+                        self.in_conversation = False
+                        logger.info("Conversation mode ended due to 10 seconds of inactivity.")
                         
             except VoiceModuleError as e:
                 logger.error(f"Voice Engine Error: {e}")
