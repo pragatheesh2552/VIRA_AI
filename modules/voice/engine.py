@@ -53,20 +53,22 @@ class VoiceEngine:
                     logger.debug(f"Heard raw text: '{text}'")
                     command = self.core.extract_command(text)
                     
-                    if command is not None:
-                        # Wake word detected
+                    if text.lower().strip() in ["vira", "veera", "vera", "mira", "mera"]:
+                        # User only said the wake word
                         self.in_conversation = True
                         self.last_speech_time = time.time()
-                        
-                        if command == "":
-                            # User only said "VIRA"
-                            logger.info("Conversation mode activated. Waiting for command.")
-                            await self.event_bus.publish("assistant_speak", AssistantSpeakPayload(text="Yes?"))
-                        else:
-                            # User said "VIRA open chrome"
-                            logger.info(f"Wake word detected! Command: '{command}'")
-                            payload = SpeechPayload(text=command, is_wake_word=True)
-                            await self.event_bus.publish("speech_recognized", payload)
+                        logger.info("Conversation mode activated. Waiting for command.")
+                        logger.info("Publishing assistant_speak: Yes?")
+                        await self.event_bus.publish("assistant_speak", AssistantSpeakPayload(text="Yes?"))
+                    elif command is not None:
+                        # Wake word detected along with a command (e.g. "VIRA open chrome")
+                        # Stripped command is already handled by extract_command
+                        if self.in_conversation:
+                            self.last_speech_time = time.time()
+                            
+                        logger.info(f"Wake word detected! Command: '{command}'")
+                        payload = SpeechPayload(text=command, is_wake_word=True)
+                        await self.event_bus.publish("speech_recognized", payload)
                     else:
                         # Wake word not detected
                         if self.in_conversation:
